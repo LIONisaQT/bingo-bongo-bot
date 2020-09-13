@@ -11,11 +11,19 @@ client.on('ready', () => {
 client.on('message', msg => {
 	if (client.user.tag === msg.member.user.tag) return;
 
+	// Emergency meetings
 	if (msg.content.startsWith('!here') || msg.content.startsWith('@here')) {
 		emergencyMeeting(msg);
 		return;
 	}
 
+	// Among Us
+	if (msg.content.startsWith('!au')) {
+		amongUsHandleArgs(msg, msg.content.substring(msg.content.indexOf(' ') + 1));
+		return;
+	}
+
+	// Reacts
 	if (msg.content.substring(0, 1) === '!') {
 		let args = msg.content.substring(1).split(' ');
 		args.forEach(function(arg) {
@@ -32,12 +40,57 @@ function findReact(msg, name) {
 }
 
 function onFindReactFail(msg, name) {
-	console.log("Could not find file for \"" + name + "\"");
-	msg.channel.send("Could not find file for \"" + name + "\".");
+	sendConsoleAndDiscordMessages(msg, "Could not find file for \"" + name + "\"");
 }
 
 function emergencyMeeting(msg) {
 	msg.channel.send("@here", {files: [EMERGENCY_MEETING_URL]});
+}
+
+function amongUsHandleArgs(msg, args) {
+	let command = args.split(' ');
+	switch (command[0]) {
+		case 'lobby':
+			amongUsMakeLobby(msg);
+			break;
+		case 'start':
+			amongUsStartLobby(msg);
+			break;
+		case 'finish':
+			if (command.length == 1) {
+				sendConsoleAndDiscordMessages(msg, 'finish command requires one more arg! (inno/imp)');
+				break;
+			}
+			amongUsGameFinish(msg, command[1]);
+			break;
+		case 'record':
+			amongUsRecordStats(msg);
+			break;
+		default:
+			sendConsoleAndDiscordMessages(msg, `Command ${command[0]} not recognized`);
+			break;
+	}
+}
+
+function amongUsMakeLobby(discord) {
+	sendConsoleAndDiscordMessages(discord, 'amongUsMakeLobby');
+}
+
+function amongUsStartLobby(discord) {
+	sendConsoleAndDiscordMessages(discord, 'amongUsStartLobby');
+}
+
+function amongUsGameFinish(discord, winner) {
+	sendConsoleAndDiscordMessages(discord, `amongUsGameFinish ${winner}`);
+}
+
+function amongUsRecordStats(discord) {
+	sendConsoleAndDiscordMessages(discord, 'amongUsRecordStats');
+}
+
+function sendConsoleAndDiscordMessages(discord, message) {
+	console.log(message);
+	discord.channel.send(message);
 }
 
 client.login(process.env.BOT_TOKEN);
