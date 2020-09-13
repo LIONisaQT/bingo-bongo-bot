@@ -16,8 +16,11 @@ client.on('message', msg => {
 	if (client.user.tag === msg.member.user.tag) return;
 
 	// Emergency meetings
-	if (msg.content.startsWith('!here') || msg.content.startsWith('@here')) {
-		emergencyMeeting(msg);
+	if (msg.content.startsWith('!here')) {
+		emergencyMeeting(msg, true);
+		return;
+	} else if (msg.content === "@here") {
+		emergencyMeeting(msg, false);
 		return;
 	}
 
@@ -63,8 +66,9 @@ function onFindReactFail(msg, name) {
 	sendConsoleAndDiscordMessages(msg, "Could not find file for \"" + name + "\"");
 }
 
-function emergencyMeeting(msg) {
-	msg.channel.send("@here", {files: [EMERGENCY_MEETING_URL]});
+function emergencyMeeting(msg, includeAt) {
+	let message = `${includeAt ? "@here" : ""}`;
+	msg.channel.send(message, {files: [EMERGENCY_MEETING_URL]});
 }
 
 function amongUsHandleArgs(msg, args) {
