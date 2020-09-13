@@ -3,6 +3,10 @@ const Discord = require('discord.js');
 const client = new Discord.Client();
 
 const EMERGENCY_MEETING_URL = "https://cdn.vox-cdn.com/thumbor/h5-DmD2dNDNSOhwYExHXLLf692Y=/0x0:1920x1080/920x613/filters:focal(807x387:1113x693):format(webp)/cdn.vox-cdn.com/uploads/chorus_image/image/67390942/Emergency_Meeting.0.jpg";
+const MAX_STRING_LEN = 10;
+
+var lastLobbyMessageId;
+var lastFinishMessageId;
 
 client.on('ready', () => {
 	console.log(`Logged in as ${client.user.tag}!`);
@@ -33,6 +37,22 @@ client.on('message', msg => {
 	}
 })
 
+client.on('messageReactionAdd', async (reaction, user) => {
+	if (client.user.tag !== reaction.message.author.tag) return;
+
+	if (reaction.partial) {
+		try {
+			await reaction.fetch();
+		} catch (error) {
+			console.log('Oof ', error);
+			return;
+		}
+	}
+
+	console.log(`${reaction.message.author.tag}'s message "${reaction.message.content.substring(0, MAX_STRING_LEN)}..." gained a reaction from ${user.tag}`);
+	console.log(`${reaction.count} user(s) have given the same reaction to this message!`);
+})
+
 function findReact(msg, name) {
 	let url = 'https://raw.githubusercontent.com/LIONisaQT/LIONisaQT.github.io/master/static/reacts/' + name + '.gif';
 	msg.channel.send('', {files: [url]})
@@ -58,7 +78,7 @@ function amongUsHandleArgs(msg, args) {
 			break;
 		case 'finish':
 			if (command.length == 1) {
-				sendConsoleAndDiscordMessages(msg, 'finish command requires one more arg! (inno/imp)');
+				sendConsoleAndDiscordMessages(msg, 'Finish command requires one more arg! (inno/imp, e.g. `!au finish inno` or `!au finish imp`)');
 				break;
 			}
 			amongUsGameFinish(msg, command[1]);
@@ -73,19 +93,19 @@ function amongUsHandleArgs(msg, args) {
 }
 
 function amongUsMakeLobby(discord) {
-	sendConsoleAndDiscordMessages(discord, 'amongUsMakeLobby');
+	discord.channel.send('Making Among Us lobby! Please react to this message to be recorded into stats. Enter `!au start` to begin the lobby.');
 }
 
 function amongUsStartLobby(discord) {
-	sendConsoleAndDiscordMessages(discord, 'amongUsStartLobby');
+	sendConsoleAndDiscordMessages(discord, 'Starting Among Us lobby! Players are locked if. To go back, run `!au cancel`. When the game is finished, enter `!au finish inno/imp`.');
 }
 
 function amongUsGameFinish(discord, winner) {
-	sendConsoleAndDiscordMessages(discord, `amongUsGameFinish ${winner}`);
+	sendConsoleAndDiscordMessages(discord, `Among Us game finished! Winners: ${winner}. Please react if you were alive at the end of the game. Only works if you reacted during the lobby phase.`);
 }
 
 function amongUsRecordStats(discord) {
-	sendConsoleAndDiscordMessages(discord, 'amongUsRecordStats');
+	sendConsoleAndDiscordMessages(discord, 'Recording stats. To begin next game, enter `!au lobby`!');
 }
 
 function sendConsoleAndDiscordMessages(discord, message) {
