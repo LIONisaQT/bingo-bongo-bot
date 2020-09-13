@@ -26,7 +26,7 @@ client.on('message', msg => {
 })
 
 function findReact(msg, name) {
-	let url = 'https://ryanshee.com/static/reacts/' + name + '.gif';
+	let url = 'https://raw.githubusercontent.com/LIONisaQT/LIONisaQT.github.io/master/static/reacts/' + name + '.gif';
 	msg.channel.send('', {files: [url]})
 		.catch(() => onFindReactFail(msg, name));
 }
