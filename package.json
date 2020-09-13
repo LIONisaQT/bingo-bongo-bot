@@ -9,7 +9,10 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "discord.js": "^11.4.2"
+    "discord.io": "^2.5.3",
+    "discord.js": "^11.4.2",
+    "dotenv": "^8.2.0",
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "nodemon": "^1.18.9"
