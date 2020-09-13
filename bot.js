@@ -19,7 +19,7 @@ client.on('message', msg => {
 	if (msg.content.startsWith('!here')) {
 		emergencyMeeting(msg, true);
 		return;
-	} else if (msg.content === "@here") {
+	} else if (msg.content === "@here" || msg.content === "@everyone") {
 		emergencyMeeting(msg, false);
 		return;
 	}
@@ -63,7 +63,7 @@ function findReact(msg, name) {
 }
 
 function onFindReactFail(msg, name) {
-	sendConsoleAndDiscordMessages(msg, "Could not find file for \"" + name + "\"");
+	msg.channel.send("Could not find file for \"" + name + "\"");
 }
 
 function emergencyMeeting(msg, includeAt) {
@@ -82,7 +82,8 @@ function amongUsHandleArgs(msg, args) {
 			break;
 		case 'finish':
 			if (command.length == 1) {
-				sendConsoleAndDiscordMessages(msg, 'Finish command requires one more arg! (inno/imp, e.g. `!au finish inno` or `!au finish imp`)');
+				console.log('lobby_finish_not_enough_args');
+				msg.channel.send('Finish command requires one more arg! (crew/imp, e.g. `!au finish crew` or `!au finish imp`)');
 				break;
 			}
 			amongUsGameFinish(msg, command[1]);
@@ -97,24 +98,47 @@ function amongUsHandleArgs(msg, args) {
 }
 
 function amongUsMakeLobby(discord) {
-	discord.channel.send('Making Among Us lobby! Please react to this message to be recorded into stats. Enter `!au start` to begin the lobby.');
+	console.log('lobby_make');
+	discord.channel.send('Making Among Us lobby! Please react to this message to be recorded into stats.\nEnter `!au start` to begin the lobby.');
 }
 
 function amongUsStartLobby(discord) {
-	sendConsoleAndDiscordMessages(discord, 'Starting Among Us lobby! Players are locked if. To go back, run `!au cancel`. When the game is finished, enter `!au finish inno/imp`.');
+	console.log('lobby_start');
+	// Add log here with participants
+	discord.channel.send('Starting Among Us lobby! Players are locked in.\nIf you need to add more players, re-enter `!au lobby`.\nWhen the game is finished, enter `!au finish crew/imp` depending on who won.');
 }
 
 function amongUsGameFinish(discord, winner) {
-	sendConsoleAndDiscordMessages(discord, `Among Us game finished! Winners: ${winner}. Please react if you were alive at the end of the game. Only works if you reacted during the lobby phase.`);
+	let winnersString;
+	switch (winner) {
+		case 'inno':
+		case 'innocent':
+		case 'innocents':
+		case 'good':
+		case 'town':
+		case 'crew':
+		case 'crewmate':
+		case 'crewmates':
+			winnersString = 'Crewmates';
+			break;
+		case 'maf':
+		case 'mafia':
+		case 'evil':
+		case 'imp':
+		case 'imposter':
+		case 'imposters':
+			winnersString = 'Imposters';
+			break;
+		default:
+			break;
+	}
+	console.log(`lobby_finish_${winnersString.toLowerCase()}`);
+	discord.channel.send(`Among Us game finished! Winners: **${winnersString}**.\nPlease react if you were alive at the end of the game. Only works if you reacted during the lobby phase.`);
 }
 
 function amongUsRecordStats(discord) {
-	sendConsoleAndDiscordMessages(discord, 'Recording stats. To begin next game, enter `!au lobby`!');
-}
-
-function sendConsoleAndDiscordMessages(discord, message) {
-	console.log(message);
-	discord.channel.send(message);
+	console.log('lobby_record');
+	discord.channel.send('Recording stats. To begin next game, enter `!au lobby`!');
 }
 
 client.login(process.env.BOT_TOKEN);
