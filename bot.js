@@ -22,7 +22,7 @@ client.on('ready', () => {
 })
 
 client.on('message', msg => {
-	if (client.user.tag === msg.member.user.tag) return;
+	if (client.user.id === msg.author.id) return;
 
 	// Emergency meetings
 	if (msg.content.startsWith('!here')) {
