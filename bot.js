@@ -2,220 +2,164 @@ require('dotenv').config();
 const Discord = require('discord.js');
 const client = new Discord.Client();
 
-const EMERGENCY_MEETING_URL = "https://cdn.vox-cdn.com/thumbor/h5-DmD2dNDNSOhwYExHXLLf692Y=/0x0:1920x1080/920x613/filters:focal(807x387:1113x693):format(webp)/cdn.vox-cdn.com/uploads/chorus_image/image/67390942/Emergency_Meeting.0.jpg";
-const MAX_STRING_LEN = 10;
-const LOBBY_STATES = {
-	NULL: 'null',
-	LOBBY: 'lobby',
-	INGAME: 'ingame',
-	RESULTS: 'results'
-};
+const leetCodeDatabase = {};
+const ryanUserId = '169572455218806784';
 
-var lastLobbyMessageId;
-var lastFinishMessageId;
-var currentLobbyStatus = LOBBY_STATES.NULL;
+function printDatabase(msg) {
+	if (Object.entries(leetCodeDatabase).length === 0) {
+		msg.channel.send(`No one has submitted any LeetCode submissions. Sad! 😤`);
+		return;
+	}
 
-var lobby = [];
+	for (const entry in leetCodeDatabase) {
+		printDatabaseForUser(msg, entry);
+	}
+}
+
+function printDatabaseForUser(msg, userId) {
+	let user = client.users.find(usr => usr.id === userId);
+	if (!user) {
+		console.warn(`⚠️ ${userId} does not exist in this server! ⚠️`);
+		return;
+	}
+
+	if (leetCodeDatabase[userId] == null) {
+		msg.channel.send(`${user.username} has not logged any LeetCode problems. Shame! 🔔`);
+		return;
+	}
+
+	let finalString = `${user.username} has completed a total of:\n`;
+	for (const submissions in leetCodeDatabase[userId]) {
+		let submissionCount = leetCodeDatabase[userId][submissions];
+		let emoji;
+		switch (submissions) {
+			case 'easy':
+				emoji = '🟢';
+				break;
+			case 'medium':
+				emoji = '🟡';
+				break;
+			case 'hard':
+				emoji = '🔴';
+				break;
+		}
+		finalString += `${emoji} ${submissionCount} ${submissions} problem${submissionCount != 1 ? 's' : ''}\n`;
+	}
+
+	msg.channel.send(finalString);
+}
+
+function clearDataForUser(msg, userId) {
+	let user = client.users.find(usr => usr.id === userId);
+	if (!user) {
+		msg.channel.send(`⚠️ That person does not exist in this server! ⚠️`);
+		return;
+	}
+
+	if (leetCodeDatabase[userId] == null) {
+		msg.channel.send(`${user.username} has no data to clear! 🤔`);
+		return;
+	}
+
+	leetCodeDatabase[userId] = null;
+	msg.channel.send(`Cleared data for ${user.username}! 💀`);
+}
 
 client.on('ready', () => {
 	console.log(`Logged in as ${client.user.tag}!`);
 })
 
 client.on('message', msg => {
+	// Return so that the bot doesn't respond to its own messages.
 	if (client.user.id === msg.author.id) return;
 
-	// Emergency meetings
-	if (msg.content.startsWith('!here')) {
-		emergencyMeeting(msg, true);
-		return;
-	} else if (msg.content === "@here" || msg.content === "@everyone") {
-		emergencyMeeting(msg, false);
-		return;
-	}
+	const message = msg.content;
 
-	// Among Us
-	if (msg.content.startsWith('!au')) {
-		amongUsHandleArgs(msg, msg.content.substring(msg.content.indexOf(' ') + 1));
-		return;
-	}
+	if (message.startsWith('!lc')) {
+		const command = message.substring(message.indexOf(' ') + 1);
+		if (command.startsWith('record')) {
+			handleLeetCodeArgs(msg, command.substring(command.indexOf(' ') + 1));
+		} else if (command.startsWith('check')) {
+			let userId = command.substring(command.indexOf(' ') + 1);
 
-	// Reacts
-	if (msg.content.substring(0, 1) === '!') {
-		let args = msg.content.substring(1).split(' ');
-		args.forEach(function(arg) {
-			findReact(msg, arg);
-		});
-		return;
-	}
-})
+			if (userId !== 'check') {
+				userId = userId.replace(/\D/g, '');
+				printDatabaseForUser(msg, userId);
+			} else {
+				printDatabase(msg);
+			}
 
-client.on('messageReactionAdd', async (reaction, user) => {
-	if (client.user.tag !== reaction.message.author.tag) return;
+		} else if (command.startsWith('clear')) {
+			if (msg.author.id !== ryanUserId) {
+				msg.channel.send(`🚨🚨🚨 Unauthorized user ${msg.author} has tried to clear database. Alerting <@${ryanUserId}>. 🚨🚨🚨`);
+				return;
+			}
 
-	if (reaction.partial) {
-		try {
-			await reaction.fetch();
-		} catch (error) {
-			console.log('Oof ', error);
-			return;
+			let userId = command.substring(command.indexOf(' ') + 1);
+
+			if (userId !== 'clear') {
+				userId = userId.replace(/\D/g, '');
+				clearDataForUser(msg, userId);
+			} else {
+				msg.channel.send(`Must provide user when attempting to clear data! 🧐`);
+			}
+
+		} else {
+			msg.channel.send(`Command \`${command}\` is undefined. 🤔`);
 		}
 	}
+});
 
-	switch (currentLobbyStatus) {
-		case LOBBY_STATES.LOBBY:
-			lobby.push(user);
-			console.log(`lobby_add ${user.tag}`);
-			break;
-		case LOBBY_STATES.RESULTS:
-			console.log(`${user.tag} reacted with ${reaction.emoji.name}`);
-			break;
-		default:
-			break;
-	}
-})
-
-client.on('messageReactionRemove', async (reaction, user) => {
-	if (client.user.tag !== reaction.message.author.tag) return;
-
-	if (reaction.partial) {
-		try {
-			await reaction.fetch();
-		} catch (error) {
-			console.log('Oof ', error);
-			return;
-		}
-	}
-
-	switch (currentLobbyStatus) {
-		case LOBBY_STATES.LOBBY:
-			let index = lobby.indexOf(user);
-			if (index > -1) {
-				lobby.splice(index, 1);
-			}
-			console.log(`lobby_remove ${user.tag}`);
-			break;
-		default:
-			break;
-	}
-})
-
-function findReact(msg, name) {
-	let url = 'https://raw.githubusercontent.com/LIONisaQT/LIONisaQT.github.io/master/static/reacts/' + name + '.gif';
-	msg.channel.send('', {files: [url]})
-		.catch(() => onFindReactFail(msg, name));
+function handleLeetCodeArgs(msg, args) {
+	const command = args.split(' ');
+	let finalString = '';
+	command.forEach(arg => finalString += handleSingleLeetCodeArg(msg, arg));
+	msg.channel.send(finalString);
 }
 
-function onFindReactFail(msg, name) {
-	msg.channel.send("Could not find file for \"" + name + "\"");
-}
+function handleSingleLeetCodeArg(msg, arg) {
+	let resultString;
 
-function emergencyMeeting(msg, includeAt) {
-	let message = `${includeAt ? "@here" : ""}`;
-	msg.channel.send(message, {files: [EMERGENCY_MEETING_URL]});
-}
-
-function amongUsHandleArgs(msg, args) {
-	let command = args.split(' ');
-	switch (command[0]) {
-		case 'lobby':
-			amongUsMakeLobby(msg);
-			break;
-		case 'start':
-			amongUsStartLobby(msg);
-			break;
-		case 'finish':
-			if (command.length == 1) {
-				console.log('lobby_finish_not_enough_args');
-				msg.channel.send('Finish command requires one more arg! (crew/imp, e.g. `!au finish crew` or `!au finish imp`)');
-				break;
-			}
-			amongUsGameFinish(msg, command[1]);
-			break;
-		case 'record':
-			amongUsRecordStats(msg);
-			break;
-		default:
-			console.log(`command_arg_unrecognized_${command[0]}`);
-			msg.channel.send(`Command arg \`${command[0]}\` not recognized`);
-			break;
-	}
-}
-
-function amongUsMakeLobby(discord) {
-	if (currentLobbyStatus == LOBBY_STATES.RESULTS) {
-		console.log('lobby_make_during_results');
-		discord.channel.send(`Making new lobby before previous game results were recorded. Previous game data wiped.`);
-	}
-
-	console.log('lobby_make');
-	currentLobbyStatus = LOBBY_STATES.LOBBY;
-	if (lobby.length > 0) {
-		console.log('lobby_make_remove_all');
-	}
-	lobby.length = 0;
-	discord.channel.send('Making Among Us lobby! Please react to this message to be recorded into stats.\nEnter `!au start` to begin the lobby.');
-}
-
-function amongUsStartLobby(discord) {
-	if (currentLobbyStatus != LOBBY_STATES.LOBBY) {
-		console.log(`lobby_start_bad_state_${currentLobbyStatus}`);
-		discord.channel.send(`\`!au start\` command given during invalid game state (${currentLobbyStatus})`);
-		return;
-	}
-
-	console.log('lobby_start');
-	currentLobbyStatus = LOBBY_STATES.INGAME;
-	
-	discord.channel.send(`Starting Among Us lobby! There ${lobby.length == 1 ? 'is' : 'are'} currently ${lobby.length} player${lobby.length == 1 ? '' : 's'} locked in.`);
-	lobby.forEach(user => discord.channel.send(`<@${user.id}>`));
-	discord.channel.send('If you need to add more players, re-enter `!au lobby`. Users locked in previously will not be migrated, so they will have to lock in again.\nWhen the game is finished, enter `!au finish crew/imp` depending on who won.');
-}
-
-function amongUsGameFinish(discord, winner) {
-	if (currentLobbyStatus != LOBBY_STATES.INGAME) {
-		console.log(`lobby_finish_bad_state_${currentLobbyStatus}`);
-		discord.channel.send(`\`!au finish\` command given during invalid game state (${currentLobbyStatus})`);
-		return;
-	}
-
-	currentLobbyStatus = LOBBY_STATES.RESULTS;
-	let winnersString;
-	switch (winner) {
-		case 'inno':
-		case 'innocent':
-		case 'innocents':
-		case 'good':
-		case 'town':
-		case 'crew':
-		case 'crewmate':
-		case 'crewmates':
-			winnersString = 'Crewmates';
-			break;
-		case 'maf':
-		case 'mafia':
-		case 'evil':
-		case 'imp':
-		case 'imposter':
-		case 'imposters':
-			winnersString = 'Imposters';
-			break;
-		default:
-			break;
-	}
-	console.log(`lobby_finish_${winnersString.toLowerCase()}`);
-	discord.channel.send(`Among Us game finished! Winners: **${winnersString}**.\nPlease react with :raised_hand: if you were alive at the end of the game. Next, please react with :innocent: if you were a crewmate, or :knife: if you were an imposter. You can only record stats if you reacted during the lobby phase (subject to iteration).\nOnce everyone has reacted, enter \`!au record\` to record stats.`);
-}
-
-function amongUsRecordStats(discord) {
-	if (currentLobbyStatus == LOBBY_STATES.RESULTS) {
-		console.log('lobby_record');
-		discord.channel.send('Recording stats. To begin next game, enter `!au lobby`.');
-		currentLobbyStatus = LOBBY_STATES.NULL;
-		lobby.length = 0;
+	if (arg.startsWith('easy') || arg.startsWith('medium') || arg.startsWith('hard')) {
+		resultString = `${handleLeetCodeSubmission(msg, arg)}\n`;
 	} else {
-		console.log(`lobby_record_bad_state_${currentLobbyStatus}`);
-		discord.channel.send(`\`!au record\` command given during invalid game state (${currentLobbyStatus})`);
+		resultString = `Arg ${arg} is not defined. 🤔\n`;
 	}
+
+	return resultString;
+}
+
+function handleLeetCodeSubmission(msg, arg) {
+	let resultString = `${msg.author.username} finished `;
+	let submissionCount = 0;
+
+	if (arg.startsWith('easy')) {
+		submissionCount = arg.substring('easy'.length);
+		resultString += `${submissionCount} easy problem${submissionCount != 1 ? 's' : ''} 🟢`;
+		setDatabaseResults(msg.author.id, 'easy', submissionCount);
+	} else if (arg.startsWith('medium')) {
+		submissionCount = arg.substring('medium'.length);
+		resultString += `${submissionCount} medium problem${submissionCount != 1 ? 's' : ''} 🟡`;
+		setDatabaseResults(msg.author.id, 'medium', submissionCount);
+	} else {
+		submissionCount = arg.substring('hard'.length);
+		resultString += `${submissionCount} hard problem${submissionCount != 1 ? 's' : ''} 🔴`;
+		setDatabaseResults(msg.author.id, 'hard', submissionCount);
+	}
+
+	return resultString;
+}
+
+function setDatabaseResults(authorId, difficulty, submissionCount) {
+	if (leetCodeDatabase[authorId] == null) {
+		leetCodeDatabase[authorId] = {};
+
+		leetCodeDatabase[authorId].easy = 0;
+		leetCodeDatabase[authorId].medium = 0;
+		leetCodeDatabase[authorId].hard = 0;
+	}
+
+	leetCodeDatabase[authorId][difficulty] += Number(submissionCount);
 }
 
 client.login(process.env.BOT_TOKEN);
